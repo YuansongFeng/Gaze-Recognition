@@ -543,8 +543,8 @@ public class CameraConnectionFragment extends Fragment {
             final Surface surface = new Surface(texture);
 
             // We set up a CaptureRequest.Builder with the output Surface.
-            /*previewRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            previewRequestBuilder.addTarget(surface);
+            previewRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            /*previewRequestBuilder.addTarget(surface);
 
             Log.i(TAG, "Opening camera preview: " + previewSize.getWidth() + "x" + previewSize.getHeight());
             */
@@ -552,7 +552,7 @@ public class CameraConnectionFragment extends Fragment {
             // Create the reader for the preview frames.
             previewReader =
                     ImageReader.newInstance(
-                            previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 4);
+                            previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 2);
             //ImageReader newInstance (int width, int height, int format, int maxImages)
 
             // OnGetPreviewListener is the onGetImageListener.class
