@@ -8,7 +8,7 @@
 
 ### Demo
 
-[![Demo video](https://gifs.com/gif/O76BEG)])
+![Alt Text](https://gifs.com/gif/O76BEG)
 
 ### Build
 
