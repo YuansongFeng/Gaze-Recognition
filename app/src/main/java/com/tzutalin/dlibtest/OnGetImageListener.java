@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+/*
+* Eye Cropping
+* 1. Directly detect landmarks out of the original frame, draw it on the floating window
+* 2. Locate the positions of eye area
+* 3. Create two more floating camera windows to display each eye individually
+* */
+
+
 package com.tzutalin.dlibtest;
 
 import android.content.Context;
@@ -57,6 +65,8 @@ public class OnGetImageListener implements OnImageAvailableListener {
     private static final int INPUT_SIZE = 500;
     private static final int IMAGE_MEAN = 117;
     private static final String TAG = "OnGetImageListener";
+    private static final int EYE_WIDTH = 40;
+    private static final int EYE_HEIGHT = 24;
 
     private int mScreenRotation = 90;
 
@@ -66,6 +76,8 @@ public class OnGetImageListener implements OnImageAvailableListener {
     private int[] mRGBBytes = null;
     private Bitmap mRGBframeBitmap = null;
     private Bitmap mCroppedBitmap = null;
+    private Bitmap mLeftBitmap = null;
+    private Bitmap mRightBitmap = null;
 
     private boolean mIsComputing = false;
     private Handler mInferenceHandler;
@@ -74,7 +86,10 @@ public class OnGetImageListener implements OnImageAvailableListener {
     private PeopleDet mPeopleDet;
     private TrasparentTitleView mTransparentTitleView;
     private FloatingCameraWindow mWindow;
+    private FloatingCameraWindow mLeftEyeWindow;
+    private FloatingCameraWindow mRightEyeWindow;
     private Paint mFaceLandmardkPaint;
+    private Paint mEyePaint;
 
     public void initialize(
             final Context context,
@@ -86,11 +101,18 @@ public class OnGetImageListener implements OnImageAvailableListener {
         this.mInferenceHandler = handler;
         mPeopleDet = new PeopleDet();
         mWindow = new FloatingCameraWindow(mContext);
+        mRightEyeWindow = new FloatingCameraWindow(mContext,0.3f,0.3f);
+        mLeftEyeWindow = new FloatingCameraWindow(mContext,0.3f,0.3f);
 
         mFaceLandmardkPaint = new Paint();
         mFaceLandmardkPaint.setColor(Color.GREEN);
         mFaceLandmardkPaint.setStrokeWidth(1);
         mFaceLandmardkPaint.setStyle(Paint.Style.STROKE);
+
+        mEyePaint = new Paint();
+        mEyePaint.setColor(Color.BLUE);
+        mEyePaint.setStrokeWidth(1.5f);
+        mEyePaint.setStyle(Paint.Style.STROKE);
     }
 
     public void deInitialize() {
@@ -101,6 +123,12 @@ public class OnGetImageListener implements OnImageAvailableListener {
 
             if (mWindow != null) {
                 mWindow.release();
+            }
+            if (mLeftEyeWindow != null) {
+                mLeftEyeWindow.release();
+            }
+            if (mRightEyeWindow!= null) {
+                mRightEyeWindow.release();
             }
         }
     }
@@ -143,9 +171,13 @@ public class OnGetImageListener implements OnImageAvailableListener {
         }
 
         final Canvas canvas = new Canvas(dst);
-        canvas.drawBitmap(src, matrix, null);
+        canvas.drawBitmap(src, matrix, null); // Matrix used to transform the Bitmap
     }
 
+    /*
+    * PreviewWidth and PreviewHeight are the image resolution for previewing.
+    * image -> color planes -> YUVByte array -> RGBFrame -> Bitmap
+    * */
     @Override
     public void onImageAvailable(final ImageReader reader) {
         Image image = null;
@@ -165,6 +197,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
 
             Trace.beginSection("imageAvailable");
 
+            // Get the array of Pixel Plane
             final Plane[] planes = image.getPlanes();
 
             // Initialize the storage bitmaps once when the resolution is known.
@@ -174,23 +207,25 @@ public class OnGetImageListener implements OnImageAvailableListener {
 
                 Log.d(TAG, String.format("Initializing at size %dx%d", mPreviewWdith, mPreviewHeight));
                 mRGBBytes = new int[mPreviewWdith * mPreviewHeight];
-                mRGBframeBitmap = Bitmap.createBitmap(mPreviewWdith, mPreviewHeight, Config.ARGB_8888);
-                mCroppedBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Config.ARGB_8888);
+                mRGBframeBitmap = Bitmap.createBitmap(mPreviewWdith, mPreviewHeight, Config.ARGB_8888); // Each pixel stored in 4 bytes
+                mCroppedBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Config.ARGB_8888);   // Input_size changed from 224 to 500
+                mLeftBitmap = Bitmap.createBitmap(EYE_WIDTH, EYE_HEIGHT, Config.ARGB_8888);
+                mRightBitmap = Bitmap.createBitmap(EYE_WIDTH, EYE_HEIGHT, Config.ARGB_8888);
 
                 mYUVBytes = new byte[planes.length][];
                 for (int i = 0; i < planes.length; ++i) {
-                    mYUVBytes[i] = new byte[planes[i].getBuffer().capacity()];
+                    mYUVBytes[i] = new byte[planes[i].getBuffer().capacity()]; // Byte buffer contains the image data of each color plane
                 }
             }
 
             for (int i = 0; i < planes.length; ++i) {
-                planes[i].getBuffer().get(mYUVBytes[i]);
+                planes[i].getBuffer().get(mYUVBytes[i]);                       // Transfer the byte data from ByteBuffer to the YUVByte array
             }
 
             final int yRowStride = planes[0].getRowStride();
             final int uvRowStride = planes[1].getRowStride();
             final int uvPixelStride = planes[1].getPixelStride();
-            ImageUtils.convertYUV420ToARGB8888(
+            ImageUtils.convertYUV420ToARGB8888(                                // Now data bytes are in mRGBBytes
                     mYUVBytes[0],
                     mYUVBytes[1],
                     mYUVBytes[2],
@@ -211,12 +246,12 @@ public class OnGetImageListener implements OnImageAvailableListener {
             Trace.endSection();
             return;
         }
-
+        // setPixels(int[] pixels, int offset, int stride, int x, int y, int width, int height)
         mRGBframeBitmap.setPixels(mRGBBytes, 0, mPreviewWdith, 0, 0, mPreviewWdith, mPreviewHeight);
-        drawResizedBitmap(mRGBframeBitmap, mCroppedBitmap);
+        //drawResizedBitmap(mRGBframeBitmap, mCroppedBitmap);
 
         if (SAVE_PREVIEW_BITMAP) {
-            ImageUtils.saveBitmap(mCroppedBitmap);
+            ImageUtils.saveBitmap(mRGBframeBitmap);
         }
 
         mInferenceHandler.post(
@@ -225,14 +260,14 @@ public class OnGetImageListener implements OnImageAvailableListener {
                     public void run() {
                         final String targetPath = Constants.getFaceShapeModelPath();
                         if (!new File(targetPath).exists()) {
-                            mTransparentTitleView.setText("Copying landmark model to " + targetPath);
+                            //mTransparentTitleView.setText("Copying landmark model to " + targetPath);
                             FileUtils.copyFileFromRawToOthers(mContext, R.raw.shape_predictor_68_face_landmarks, targetPath);
                         }
 
                         long startTime = System.currentTimeMillis();
                         List<VisionDetRet> results;
                         synchronized (OnGetImageListener.this) {
-                            results = mPeopleDet.detBitmapFace(mCroppedBitmap, targetPath);
+                            results = mPeopleDet.detBitmapFace(mRGBframeBitmap, targetPath);   // Change mCroppedBitmap to mRGBframeBitmap
                         }
                         long endTime = System.currentTimeMillis();
                         //mTransparentTitleView.setText("Time cost: " + String.valueOf((endTime - startTime) / 1000f) + " sec");
@@ -249,7 +284,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                 bounds.bottom = (int) (ret.getBottom() * resizeRatio);
                                 Log.d(TAG,"Face bounds: "+bounds.left+" "+bounds.right);
                                 // Specify the Bitmap for the canvas to draw into
-                                Canvas canvas = new Canvas(mCroppedBitmap);
+                                Canvas canvas = new Canvas(mRGBframeBitmap);           // Change mCroppedBitmap to mRGBframeBitmap
                                 // mFaceLandmardkPaint is a Paint() class
                                 canvas.drawRect(bounds, mFaceLandmardkPaint);
 
@@ -261,14 +296,51 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                     Log.d(TAG,"Landmarks position: "+pointX+" "+pointY);
                                     canvas.drawCircle(pointX, pointY, 1, mFaceLandmardkPaint);
                                 }
+                                ArrayList<Point> eyes = new ArrayList<Point>();
+                                for(int i=36;i<48;i++){
+                                    eyes.add(landmarks.get(i));
+                                }
+                                for (Point point : eyes) {
+                                    int pointX = (int) (point.x * resizeRatio);
+                                    int pointY = (int) (point.y * resizeRatio);
+                                    Log.d(TAG,"Eyes position: "+pointX+" "+pointY);
+                                    canvas.drawCircle(pointX, pointY, 1, mEyePaint);
+                                }
+
+                                int leftx = mPreviewWdith;
+                                int lefty = mPreviewHeight;
+                                int rightx = mPreviewWdith;
+                                int righty = mPreviewHeight;
+                                for(int i=36; i<40; i++){
+                                    if(landmarks.get(i).x < leftx) leftx = landmarks.get(i).x;
+                                }
+                                leftx -= EYE_WIDTH/6;
+                                for(int i=36; i<40; i++){
+                                    if(landmarks.get(i).y < lefty) lefty = landmarks.get(i).y;
+                                }
+                                lefty -= EYE_HEIGHT/3;
+                                for(int i=42; i<46; i++){
+                                    if(landmarks.get(i).x < rightx) rightx = landmarks.get(i).x;
+                                }
+                                rightx -= EYE_WIDTH/6;
+                                for(int i=42; i<46; i++){
+                                    if(landmarks.get(i).y < righty) righty = landmarks.get(i).y;
+                                }
+                                righty -= EYE_HEIGHT/3;
+                                mLeftBitmap = Bitmap.createBitmap(mRGBframeBitmap, leftx,lefty,EYE_WIDTH, EYE_HEIGHT);
+                                mRightBitmap = Bitmap.createBitmap(mRGBframeBitmap, rightx,righty,EYE_WIDTH, EYE_HEIGHT);
+
+
                             }
                         }
-
-                        mWindow.setRGBBitmap(mCroppedBitmap);
+                        mWindow.setRGBBitmap(mRGBframeBitmap);
+                        mLeftEyeWindow.setRGBBitmap(mLeftBitmap);
+                        mRightEyeWindow.setRGBBitmap(mRightBitmap);
                         mIsComputing = false;
                     }
                 });
 
         Trace.endSection();
     }
+
 }

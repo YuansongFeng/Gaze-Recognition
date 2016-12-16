@@ -75,7 +75,7 @@ public class CameraConnectionFragment extends Fragment {
     private static final int MINIMUM_PREVIEW_SIZE = 320;
     private static final String TAG = "CameraConnectionFragment";
 
-    private TrasparentTitleView mScoreView;
+    //private TrasparentTitleView mScoreView;
 
     /**
      * Conversion from screen rotation to JPEG orientation.
@@ -292,7 +292,7 @@ public class CameraConnectionFragment extends Fragment {
     @Override
     public void onViewCreated(final View view, final Bundle savedInstanceState) {
         textureView = (AutoFitTextureView) view.findViewById(R.id.texture);
-        mScoreView = (TrasparentTitleView) view.findViewById(R.id.results);
+        //mScoreView = (TrasparentTitleView) view.findViewById(R.id.results);
     }
 
     @Override
@@ -544,14 +544,15 @@ public class CameraConnectionFragment extends Fragment {
 
             // We set up a CaptureRequest.Builder with the output Surface.
             previewRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            previewRequestBuilder.addTarget(surface);
+            /*previewRequestBuilder.addTarget(surface);
 
             Log.i(TAG, "Opening camera preview: " + previewSize.getWidth() + "x" + previewSize.getHeight());
+            */
 
             // Create the reader for the preview frames.
             previewReader =
                     ImageReader.newInstance(
-                            previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 4);
+                            previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 2);
             //ImageReader newInstance (int width, int height, int format, int maxImages)
 
             // OnGetPreviewListener is the onGetImageListener.class
@@ -601,7 +602,7 @@ public class CameraConnectionFragment extends Fragment {
         }
 
         Log.i(TAG, "Getting assets.");
-        mOnGetPreviewListener.initialize(getActivity().getApplicationContext(), getActivity().getAssets(), mScoreView, inferenceHandler);
+        mOnGetPreviewListener.initialize(getActivity().getApplicationContext(), getActivity().getAssets(), null, inferenceHandler); // Changed mScoreView to null
     }
 
     /**

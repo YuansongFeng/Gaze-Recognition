@@ -23,10 +23,10 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true" />
     
-    <com.tzutalin.dlibtest.TrasparentTitleView
+    <!--com.tzutalin.dlibtest.TrasparentTitleView
         android:id="@+id/results"
         android:layout_width="match_parent"
         android:layout_height="112dp"
-        android:layout_alignParentTop="true" />
+        android:layout_alignParentTop="true" /-->
         
 </RelativeLayout>
