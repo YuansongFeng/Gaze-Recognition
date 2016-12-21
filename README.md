@@ -1,30 +1,14 @@
-## dlib-android-app
+## gaze recognition
++ Stage 1:Facial Landmark Detection
 
-[![Build Status](https://travis-ci.org/tzutalin/dlib-android-app.png)](https://travis-ci.org/tzutalin/dlib-android-app)
-[ ![Download](https://api.bintray.com/packages/tzutalin/maven/dlib-android-app/images/download.svg) ](https://bintray.com/tzutalin/maven/dlib-android-app/_latestVersion)
-
-See http://dlib.net for the main project documentation.
-
-See [dlib-android](https://github.com/tzutalin/dlib-android) for JNI lib. Refer to dlib-android/jni/jnilib_ex
-
-###Grap the source
-
-`$ git clone https://github.com/tzutalin/dlib-android-app.git`
 
 ### Features
 
-* Support HOG detector
-
-* HOG Face detection
-
-* Facial Landmark/Expression
+* Support HOG detector on Facial Landmark Detection
 
 ### Demo
-![](demo/demo1.png)
-![](demo/demo2.png)
-![](demo/demo3.png)
 
-[![Demo video](https://j.gifs.com/82n7Oo.gif)](https://www.youtube.com/watch?v=TbX3t7QNhvs)
+![](https://j.gifs.com/66KJYQ.gif)
 
 ### Build
 
@@ -47,11 +31,6 @@ or
 $ make ; make install
 
 ```
-
-#### Update shared lib (Optional)
-You can build shared library from [dlib-android](https://github.com/tzutalin/dlib-android)
-
-Copy the shared libray to ./dlib/src/main/jniLibs/
 
 ### Try directly
 

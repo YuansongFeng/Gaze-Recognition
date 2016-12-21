@@ -81,23 +81,23 @@ public class FloatingCameraWindow {
         mWindowHeight = mWindowHeight > 0 && mWindowHeight < mScreenMaxHeight ? mWindowHeight : mScreenMaxHeight;
     }
 
-    public FloatingCameraWindow(Context context, float scaleWidthRatio, float scaleHeightRatio) {
+    public FloatingCameraWindow(Context context, int width, int height) {
         this(context);
 
-        if (scaleWidthRatio < 0 || scaleWidthRatio > 1 || scaleHeightRatio < 0 || scaleHeightRatio > 1) {
+        if (width < 0 || width > mScreenMaxWidth || height < 0 || height > mScreenMaxHeight) {
             throw new IllegalArgumentException("Window size is illegal");
         }
 
-        mScaleWidthRatio = scaleWidthRatio;
-        mScaleHeightRatio =  scaleHeightRatio;
+        /*mScaleWidthRatio = scaleWidthRatio;
+        mScaleHeightRatio =  scaleHeightRatio;*/
 
         if (DEBUG) {
             Log.d(TAG, "mScaleWidthRatio: " + mScaleWidthRatio);
             Log.d(TAG, "mScaleHeightRatio: " + mScaleHeightRatio);
         }
 
-        mWindowWidth = (int)(scaleWidthRatio * mScreenMaxWidth);
-        mWindowHeight = (int)(scaleHeightRatio * mScreenMaxHeight);
+        mWindowWidth = width;
+        mWindowHeight = height;
     }
 
     private void init() {

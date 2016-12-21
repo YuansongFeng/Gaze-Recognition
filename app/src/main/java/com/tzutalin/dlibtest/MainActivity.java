@@ -29,6 +29,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import com.dexafree.materialList.card.Card;
@@ -51,7 +52,6 @@ import java.util.List;
 
 import hugo.weaving.DebugLog;
 
-@EActivity(R.layout.activity_main)
 public class MainActivity extends AppCompatActivity {
     private static final int RESULT_LOAD_IMG = 1;
     private static final int REQUEST_CODE_PERMISSION = 2;
@@ -67,19 +67,17 @@ public class MainActivity extends AppCompatActivity {
 
     protected String mTestImgPath;
     // UI
-    @ViewById(R.id.material_listview)
     protected MaterialListView mListView;
-    @ViewById(R.id.fab)
-    protected FloatingActionButton mFabActionBt;
-    @ViewById(R.id.fab_cam)
     protected FloatingActionButton mFabCamActionBt;
-    @ViewById(R.id.toolbar)
     protected Toolbar mToolbar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
         mListView = (MaterialListView) findViewById(R.id.material_listview);
+        mFabCamActionBt = (FloatingActionButton)findViewById(R.id.fab_cam);
+        mToolbar =  (Toolbar)findViewById(R.id.toolbar);
         setSupportActionBar(mToolbar);
         // Just use hugo to print log
         isExternalStorageWritable();
@@ -91,22 +89,23 @@ public class MainActivity extends AppCompatActivity {
         if (currentapiVersion >= Build.VERSION_CODES.M) {
             verifyPermissions(this);
         }
+        mFabCamActionBt.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                launchCameraPreview();
+            }
+        });
+
     }
 
-    @AfterViews
-    protected void setupUI() {
-        mToolbar.setTitle(getString(R.string.app_name));
-        Toast.makeText(MainActivity.this, getString(R.string.description_info), Toast.LENGTH_LONG).show();
-    }
-
-    @Click({R.id.fab})
+    /*@Click({R.id.fab})
     protected void launchGallery() {
         Toast.makeText(MainActivity.this, "Pick one image", Toast.LENGTH_SHORT).show();
         Intent galleryIntent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         startActivityForResult(galleryIntent, RESULT_LOAD_IMG);
-    }
+    }*/
 
-    @Click({R.id.fab_cam})
+
     protected void launchCameraPreview() {
         startActivity(new Intent(this, CameraActivity.class));
     }
@@ -160,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    @DebugLog
+    /*@DebugLog
     protected void demoStaticImage() {
         if (mTestImgPath != null) {
             Log.d(TAG, "demoStaticImage() launch a task to det");
@@ -172,13 +171,13 @@ public class MainActivity extends AppCompatActivity {
             Intent galleryIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             startActivityForResult(galleryIntent, RESULT_LOAD_IMG);
         }
-    }
+    }*/
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == REQUEST_CODE_PERMISSION) {
             Toast.makeText(MainActivity.this, "Demo using static images", Toast.LENGTH_SHORT).show();
-            demoStaticImage();
+            //demoStaticImage();
         }
     }
 
@@ -198,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
                 mTestImgPath = cursor.getString(columnIndex);
                 cursor.close();
                 if (mTestImgPath != null) {
-                    runDetectAsync(mTestImgPath);
+                    //runDetectAsync(mTestImgPath);
                     Toast.makeText(this, "Img Path:" + mTestImgPath, Toast.LENGTH_SHORT).show();
                 }
             } else {
@@ -212,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
     // ==========================================================
     // Tasks inner class
     // ==========================================================
-    private ProgressDialog mDialog;
+    /*private ProgressDialog mDialog;
 
     @Background
     @NonNull
@@ -235,7 +234,7 @@ public class MainActivity extends AppCompatActivity {
 
 
         PeopleDet peopleDet = new PeopleDet();
-        /*
+        *//*
         List<VisionDetRet> personList = peopleDet.detPerson(imgPath);
         if (personList.size() > 0) {
             Card card = new Card.Builder(MainActivity.this)
@@ -252,7 +251,7 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(getApplicationContext(), "No person", Toast.LENGTH_SHORT).show();
                 }
             });
-        }*/
+        }*//*
 
         String landmarkPath = "";
         // If landmark exits in sdcard, then use it
@@ -286,9 +285,9 @@ public class MainActivity extends AppCompatActivity {
 
         addCardListView(cardrets);
         dismissDialog();
-    }
+    }*/
 
-    @UiThread
+/*    @UiThread
     protected void addCardListView(List<Card> cardrets) {
         for (Card each : cardrets) {
             mListView.add(each);
@@ -305,7 +304,7 @@ public class MainActivity extends AppCompatActivity {
         if (mDialog != null) {
             mDialog.dismiss();
         }
-    }
+    }*/
 
     @DebugLog
     protected BitmapDrawable drawRect(String path, List<VisionDetRet> results, int color) {

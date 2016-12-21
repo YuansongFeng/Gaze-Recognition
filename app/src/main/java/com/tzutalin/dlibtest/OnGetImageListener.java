@@ -51,9 +51,13 @@ import com.tzutalin.dlib.VisionDetRet;
 
 import junit.framework.Assert;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import Jama.*;
+
+import static com.tzutalin.dlibtest.CalibrationActivity.mCalibrationGrayScale;
 
 /**
  * Class that takes in preview frames and converts the image to Bitmaps to process with dlib lib.
@@ -65,8 +69,9 @@ public class OnGetImageListener implements OnImageAvailableListener {
     private static final int INPUT_SIZE = 500;
     private static final int IMAGE_MEAN = 117;
     private static final String TAG = "OnGetImageListener";
-    private static final int EYE_WIDTH = 40;
-    private static final int EYE_HEIGHT = 24;
+    public static final int EYE_WIDTH = 50;
+    public static final int EYE_HEIGHT = 20;
+    public static final double EYE_RATIO = (double) EYE_HEIGHT/EYE_WIDTH;
 
     private int mScreenRotation = 90;
 
@@ -78,6 +83,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
     private Bitmap mCroppedBitmap = null;
     private Bitmap mLeftBitmap = null;
     private Bitmap mRightBitmap = null;
+    private Jama.Matrix mCalibrationMatrix;
 
     private boolean mIsComputing = false;
     private Handler mInferenceHandler;
@@ -101,8 +107,8 @@ public class OnGetImageListener implements OnImageAvailableListener {
         this.mInferenceHandler = handler;
         mPeopleDet = new PeopleDet();
         mWindow = new FloatingCameraWindow(mContext);
-        mRightEyeWindow = new FloatingCameraWindow(mContext,0.3f,0.3f);
-        mLeftEyeWindow = new FloatingCameraWindow(mContext,0.3f,0.3f);
+        mRightEyeWindow = new FloatingCameraWindow(mContext,500,500);
+        mLeftEyeWindow = new FloatingCameraWindow(mContext,500,500);
 
         mFaceLandmardkPaint = new Paint();
         mFaceLandmardkPaint.setColor(Color.GREEN);
@@ -290,45 +296,74 @@ public class OnGetImageListener implements OnImageAvailableListener {
 
                                 // Draw landmark
                                 ArrayList<Point> landmarks = ret.getFaceLandmarks();
-                                for (Point point : landmarks) {
+                                /*for (Point point : landmarks) {
                                     int pointX = (int) (point.x * resizeRatio);
                                     int pointY = (int) (point.y * resizeRatio);
                                     Log.d(TAG,"Landmarks position: "+pointX+" "+pointY);
                                     canvas.drawCircle(pointX, pointY, 1, mFaceLandmardkPaint);
-                                }
+                                }*/
                                 ArrayList<Point> eyes = new ArrayList<Point>();
                                 for(int i=36;i<48;i++){
                                     eyes.add(landmarks.get(i));
                                 }
-                                for (Point point : eyes) {
+                                /*for (Point point : eyes) {
                                     int pointX = (int) (point.x * resizeRatio);
                                     int pointY = (int) (point.y * resizeRatio);
                                     Log.d(TAG,"Eyes position: "+pointX+" "+pointY);
                                     canvas.drawCircle(pointX, pointY, 1, mEyePaint);
-                                }
-
+                                }*/
                                 int leftx = mPreviewWdith;
                                 int lefty = mPreviewHeight;
-                                int rightx = mPreviewWdith;
-                                int righty = mPreviewHeight;
-                                for(int i=36; i<40; i++){
+                                int lefth = 0;
+                                int leftw = 0;
+                                double leftratio;
+                                for(int i=36; i<42; i++){
                                     if(landmarks.get(i).x < leftx) leftx = landmarks.get(i).x;
                                 }
-                                leftx -= EYE_WIDTH/6;
-                                for(int i=36; i<40; i++){
+                                for(int i=36; i<42; i++){
                                     if(landmarks.get(i).y < lefty) lefty = landmarks.get(i).y;
                                 }
-                                lefty -= EYE_HEIGHT/3;
-                                for(int i=42; i<46; i++){
+                                for(int i=36; i<42; i++){
+                                    if(landmarks.get(i).x-leftx > leftw) leftw = landmarks.get(i).x-leftx;
+                                    if(landmarks.get(i).y-lefty > lefth) lefth = landmarks.get(i).y-lefty;
+                                }
+                                leftratio = (double) lefth/leftw;
+                                if(EYE_RATIO < leftratio){leftw = (int)(lefth/EYE_RATIO);}
+                                else if(EYE_RATIO > leftratio){lefth = (int)(leftw*EYE_RATIO);}
+                                Bitmap LeftBitMap = Bitmap.createBitmap(mRGBframeBitmap, leftx,lefty,leftw, lefth);
+                                mLeftBitmap = CalibrationActivity.doGreyscale(Bitmap.createScaledBitmap(LeftBitMap,EYE_WIDTH,EYE_HEIGHT,false));
+
+                                double[] observedGrayScale = new double[mLeftBitmap.getWidth()*mLeftBitmap.getHeight()];
+                                for(int i=0; i<mLeftBitmap.getHeight();i++){
+                                    for (int j=0; j<mLeftBitmap.getWidth();j++){
+                                        observedGrayScale[i*mLeftBitmap.getWidth()+j] = Color.red(mLeftBitmap.getPixel(j,i));
+                                    }
+                                }
+                                double[] coefficients = computeCoef(observedGrayScale);
+                                Point gazing = computeLocation(coefficients);
+                                canvas.drawCircle(gazing.x, gazing.y, 1, mFaceLandmardkPaint);
+
+
+                                int rightx = mPreviewWdith;
+                                int righty = mPreviewHeight;
+                                int righth = 0;
+                                int rightw = 0;
+                                double rightratio;
+                                for(int i=42; i<48; i++){
                                     if(landmarks.get(i).x < rightx) rightx = landmarks.get(i).x;
                                 }
-                                rightx -= EYE_WIDTH/6;
-                                for(int i=42; i<46; i++){
+                                for(int i=42; i<48; i++){
                                     if(landmarks.get(i).y < righty) righty = landmarks.get(i).y;
                                 }
-                                righty -= EYE_HEIGHT/3;
-                                mLeftBitmap = Bitmap.createBitmap(mRGBframeBitmap, leftx,lefty,EYE_WIDTH, EYE_HEIGHT);
-                                mRightBitmap = Bitmap.createBitmap(mRGBframeBitmap, rightx,righty,EYE_WIDTH, EYE_HEIGHT);
+                                for(int i=42; i<48; i++){
+                                    if(landmarks.get(i).x-rightx > rightw) rightw = landmarks.get(i).x-rightx;
+                                    if(landmarks.get(i).y-righty > righth) righth = landmarks.get(i).y-righty;
+                                }
+                                rightratio = (double) righth/rightw;
+                                if(EYE_RATIO < rightratio){rightw = (int)(righth/EYE_RATIO);}
+                                else if(EYE_RATIO > rightratio){righth = (int)(rightw*EYE_RATIO);}
+                                Bitmap RightBitMap = Bitmap.createBitmap(mRGBframeBitmap, rightx,righty,rightw, righth);
+                                mRightBitmap = CalibrationActivity.doGreyscale(Bitmap.createScaledBitmap(RightBitMap,EYE_WIDTH,EYE_HEIGHT,false));
 
 
                             }
@@ -341,6 +376,43 @@ public class OnGetImageListener implements OnImageAvailableListener {
                 });
 
         Trace.endSection();
+    }
+
+    private static double[] computeCoef(double[] observed){
+        double[] coef = new double[9];
+        double[][] caliScale = new double[9][];
+        for(int i:mCalibrationGrayScale.keySet()){
+            Log.d(TAG,i+"  "+mCalibrationGrayScale.get(i).toString());
+            caliScale[i-1] = mCalibrationGrayScale.get(i);
+        }
+        double[][] observedScale = new double[1][];
+        observedScale[0] = observed;
+        Jama.Matrix A = new Jama.Matrix(caliScale);
+        Jama.Matrix B = new Jama.Matrix(observedScale);
+        QRDecomposition qrDecomposition = new QRDecomposition(A);
+        Jama.Matrix x = qrDecomposition.solve(B);
+        double total = 0;
+        for(int i=0; i<caliScale.length; i++){
+            coef[i] = x.getArray()[i][0];
+            total += coef[i];
+        }
+        //Normalize Coefficients
+        for(int i=0; i<coef.length; i++){
+            coef[i] /= total;
+        }
+        return coef;
+    }
+
+    private static Point computeLocation(double[] coef){
+        double x = 0;
+        double y = 0;
+        for(int i=0; i<coef.length;i++){
+            Point point = CalibrationActivity.mCalibrationPos.get(i);
+            x += coef[i] * point.x;
+            y += coef[i] * point.y;
+        }
+        Point starePoint = new Point((int)x,(int)y);
+        return starePoint;
     }
 
 }
