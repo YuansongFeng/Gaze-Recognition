@@ -41,6 +41,7 @@ import android.media.ImageReader;
 import android.media.ImageReader.OnImageAvailableListener;
 import android.os.Handler;
 import android.os.Trace;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.WindowManager;
@@ -57,7 +58,9 @@ import java.util.ArrayList;
 import java.util.List;
 import Jama.*;
 
-import static com.tzutalin.dlibtest.CalibrationActivity.mCalibrationGrayScale;
+import static com.tzutalin.dlibtest.CalibrationActivity.mCalibrationPos;
+import static com.tzutalin.dlibtest.CalibrationActivity.mLeftCalibrationGrayScale;
+import static com.tzutalin.dlibtest.CalibrationActivity.mRightCalibrationGrayScale;
 
 /**
  * Class that takes in preview frames and converts the image to Bitmaps to process with dlib lib.
@@ -77,12 +80,15 @@ public class OnGetImageListener implements OnImageAvailableListener {
 
     private int mPreviewWdith = 0;
     private int mPreviewHeight = 0;
+    private int mScreenWidth = 0;
+    private int mScreentHeight = 0;
     private byte[][] mYUVBytes;
     private int[] mRGBBytes = null;
     private Bitmap mRGBframeBitmap = null;
     private Bitmap mCroppedBitmap = null;
     private Bitmap mLeftBitmap = null;
     private Bitmap mRightBitmap = null;
+    private Bitmap mGazeBitmap = null;
     private Jama.Matrix mCalibrationMatrix;
 
     private boolean mIsComputing = false;
@@ -111,14 +117,22 @@ public class OnGetImageListener implements OnImageAvailableListener {
         mLeftEyeWindow = new FloatingCameraWindow(mContext,500,500);
 
         mFaceLandmardkPaint = new Paint();
-        mFaceLandmardkPaint.setColor(Color.GREEN);
-        mFaceLandmardkPaint.setStrokeWidth(1);
+        mFaceLandmardkPaint.setColor(Color.WHITE);
+        mFaceLandmardkPaint.setStrokeWidth(5);
         mFaceLandmardkPaint.setStyle(Paint.Style.STROKE);
 
         mEyePaint = new Paint();
         mEyePaint.setColor(Color.BLUE);
         mEyePaint.setStrokeWidth(1.5f);
         mEyePaint.setStyle(Paint.Style.STROKE);
+
+        Display getOrient = ((WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+        int orientation = Configuration.ORIENTATION_UNDEFINED;
+        Point point = new Point();
+        getOrient.getSize(point);
+        mScreenWidth = point.x;
+        mScreentHeight = point.y;
+        Log.d(TAG, String.format("screen size (%d,%d)", mScreenWidth, mScreentHeight));
     }
 
     public void deInitialize() {
@@ -145,10 +159,10 @@ public class OnGetImageListener implements OnImageAvailableListener {
         int orientation = Configuration.ORIENTATION_UNDEFINED;
         Point point = new Point();
         getOrient.getSize(point);
-        int screen_width = point.x;
-        int screen_height = point.y;
-        Log.d(TAG, String.format("screen size (%d,%d)", screen_width, screen_height));
-        if (screen_width < screen_height) {
+        mScreenWidth = point.x;
+        mScreentHeight = point.y;
+        Log.d(TAG, String.format("screen size (%d,%d)", mScreenWidth, mScreentHeight));
+        if (mScreenWidth < mScreentHeight) {
             orientation = Configuration.ORIENTATION_PORTRAIT;
             mScreenRotation = 90;
         } else {
@@ -217,6 +231,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
                 mCroppedBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Config.ARGB_8888);   // Input_size changed from 224 to 500
                 mLeftBitmap = Bitmap.createBitmap(EYE_WIDTH, EYE_HEIGHT, Config.ARGB_8888);
                 mRightBitmap = Bitmap.createBitmap(EYE_WIDTH, EYE_HEIGHT, Config.ARGB_8888);
+                mGazeBitmap = Bitmap.createBitmap(mScreenWidth,mScreentHeight,Config.ARGB_8888);
 
                 mYUVBytes = new byte[planes.length][];
                 for (int i = 0; i < planes.length; ++i) {
@@ -290,8 +305,8 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                 bounds.bottom = (int) (ret.getBottom() * resizeRatio);
                                 Log.d(TAG,"Face bounds: "+bounds.left+" "+bounds.right);
                                 // Specify the Bitmap for the canvas to draw into
-                                Canvas canvas = new Canvas(mRGBframeBitmap);           // Change mCroppedBitmap to mRGBframeBitmap
-                                // mFaceLandmardkPaint is a Paint() class
+                                Canvas canvas = new Canvas(mRGBframeBitmap);// Change mCroppedBitmap to mRGBframeBitmap
+                                Canvas gazeCanvas = new Canvas(mGazeBitmap);
                                 canvas.drawRect(bounds, mFaceLandmardkPaint);
 
                                 // Draw landmark
@@ -318,10 +333,10 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                 int leftw = 0;
                                 double leftratio;
                                 for(int i=36; i<42; i++){
-                                    if(landmarks.get(i).x < leftx) leftx = landmarks.get(i).x;
+                                    if(landmarks.get(i).x < leftx && landmarks.get(i).x > 0) leftx = landmarks.get(i).x;
                                 }
                                 for(int i=36; i<42; i++){
-                                    if(landmarks.get(i).y < lefty) lefty = landmarks.get(i).y;
+                                    if(landmarks.get(i).y < lefty && landmarks.get(i).y > 0) lefty = landmarks.get(i).y;
                                 }
                                 for(int i=36; i<42; i++){
                                     if(landmarks.get(i).x-leftx > leftw) leftw = landmarks.get(i).x-leftx;
@@ -333,15 +348,27 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                 Bitmap LeftBitMap = Bitmap.createBitmap(mRGBframeBitmap, leftx,lefty,leftw, lefth);
                                 mLeftBitmap = CalibrationActivity.doGreyscale(Bitmap.createScaledBitmap(LeftBitMap,EYE_WIDTH,EYE_HEIGHT,false));
 
-                                double[] observedGrayScale = new double[mLeftBitmap.getWidth()*mLeftBitmap.getHeight()];
+                                double[] observedLeftScale = new double[mLeftBitmap.getWidth()*mLeftBitmap.getHeight()];
                                 for(int i=0; i<mLeftBitmap.getHeight();i++){
                                     for (int j=0; j<mLeftBitmap.getWidth();j++){
-                                        observedGrayScale[i*mLeftBitmap.getWidth()+j] = Color.red(mLeftBitmap.getPixel(j,i));
+                                        observedLeftScale[i*mLeftBitmap.getWidth()+j] = Color.red(mLeftBitmap.getPixel(j,i));
                                     }
                                 }
-                                double[] coefficients = computeCoef(observedGrayScale);
-                                Point gazing = computeLocation(coefficients);
-                                canvas.drawCircle(gazing.x, gazing.y, 1, mFaceLandmardkPaint);
+                                double[] leftCoefs = computeCoef(observedLeftScale,true);
+                                /*for(int i=0; i<coefficients.length; i++){
+                                    Log.d(TAG,"Coefficients: "+coefficients[i]);
+                                }*/
+                                Point leftGaze = computeLocation(leftCoefs);
+                                int adjustedXLeft = 0;
+                                int adjustedYLeft = 0;
+                                /*double XR = (double)mScreenWidth/2500;
+                                double YR = (double)mScreentHeight/5000;
+                                adjustedX = (int)((gazing.x-200)*XR);
+                                adjustedY = (int)((gazing.y+100)*YR);*/
+                                adjustedXLeft = leftGaze.x-200;
+                                adjustedYLeft = leftGaze.y;
+                                //Log.d(TAG,"Staring Position: "+adjustedXLeft+", "+adjustedYLeft);
+
 
 
                                 int rightx = mPreviewWdith;
@@ -365,11 +392,36 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                 Bitmap RightBitMap = Bitmap.createBitmap(mRGBframeBitmap, rightx,righty,rightw, righth);
                                 mRightBitmap = CalibrationActivity.doGreyscale(Bitmap.createScaledBitmap(RightBitMap,EYE_WIDTH,EYE_HEIGHT,false));
 
+                                double[] observedRightScale = new double[mRightBitmap.getWidth()*mRightBitmap.getHeight()];
+                                for(int i=0; i<mRightBitmap.getHeight();i++){
+                                    for (int j=0; j<mRightBitmap.getWidth();j++){
+                                        observedRightScale[i*mRightBitmap.getWidth()+j] = Color.red(mRightBitmap.getPixel(j,i));
+                                    }
+                                }
+                                double[] rightCoefs = computeCoef(observedLeftScale,false);
+                                /*for(int i=0; i<coefficients.length; i++){
+                                    Log.d(TAG,"Coefficients: "+coefficients[i]);
+                                }*/
+                                Point rightGaze = computeLocation(rightCoefs);
+                                int adjustedXRight = 0;
+                                int adjustedYRight = 0;
+                                /*double XR = (double)mScreenWidth/2500;
+                                double YR = (double)mScreentHeight/5000;
+                                adjustedX = (int)((gazing.x-200)*XR);
+                                adjustedY = (int)((gazing.y+100)*YR);*/
+                                adjustedXRight = rightGaze.x+2000;
+                                adjustedYRight = rightGaze.y-800;
+                                //Log.d(TAG,"Staring Position: "+adjustedXRight+", "+adjustedYRight);
 
+                                int adjustedX = (adjustedXLeft+adjustedXRight)/2;
+                                int adjustedY = (adjustedYLeft+adjustedYRight)/2;
+                                Log.d(TAG,"Staring Position: "+adjustedX+", "+adjustedY);
+                                gazeCanvas.drawCircle(adjustedX, adjustedY, 5, mFaceLandmardkPaint);
                             }
                         }
-                        mWindow.setRGBBitmap(mRGBframeBitmap);
-                        mLeftEyeWindow.setRGBBitmap(mLeftBitmap);
+                        //mWindow.setRGBBitmap(mRGBframeBitmap);
+                        mWindow.setRGBBitmap(mGazeBitmap);
+                        //mLeftEyeWindow.setRGBBitmap(mLeftBitmap);
                         mRightEyeWindow.setRGBBitmap(mRightBitmap);
                         mIsComputing = false;
                     }
@@ -378,17 +430,24 @@ public class OnGetImageListener implements OnImageAvailableListener {
         Trace.endSection();
     }
 
-    private static double[] computeCoef(double[] observed){
+    private static double[] computeCoef(double[] observed, boolean leftEye){
         double[] coef = new double[9];
         double[][] caliScale = new double[9][];
-        for(int i:mCalibrationGrayScale.keySet()){
-            Log.d(TAG,i+"  "+mCalibrationGrayScale.get(i).toString());
-            caliScale[i-1] = mCalibrationGrayScale.get(i);
+        if(leftEye == true){
+            for(int i:mLeftCalibrationGrayScale.keySet()){
+            caliScale[i-1] = mLeftCalibrationGrayScale.get(i);
+        }
+        }else{
+            for(int i:mRightCalibrationGrayScale.keySet()){
+                caliScale[i-1] = mRightCalibrationGrayScale.get(i);
+        }
         }
         double[][] observedScale = new double[1][];
         observedScale[0] = observed;
         Jama.Matrix A = new Jama.Matrix(caliScale);
+        A = A.transpose();
         Jama.Matrix B = new Jama.Matrix(observedScale);
+        B = B.transpose();
         QRDecomposition qrDecomposition = new QRDecomposition(A);
         Jama.Matrix x = qrDecomposition.solve(B);
         double total = 0;
@@ -407,7 +466,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
         double x = 0;
         double y = 0;
         for(int i=0; i<coef.length;i++){
-            Point point = CalibrationActivity.mCalibrationPos.get(i);
+            Point point = CalibrationActivity.mCalibrationPos.get(i+1);
             x += coef[i] * point.x;
             y += coef[i] * point.y;
         }

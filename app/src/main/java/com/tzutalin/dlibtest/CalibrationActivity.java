@@ -1,6 +1,7 @@
 package com.tzutalin.dlibtest;
 
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -65,10 +66,13 @@ public class CalibrationActivity extends AppCompatActivity {
     private Button btnCali7;
     private Button btnCali8;
     private Button btnCali9;
+    private Button btnGazeTracking;
+    private ProgressDialog mProgressDialog;
     private static final String TAG = "Gaze_Calibration";
     private static ArrayList<Button> buttonList;
     public static HashMap<Integer,Point> mCalibrationPos;
-    public static HashMap<Integer,double[]> mCalibrationGrayScale;
+    public static HashMap<Integer,double[]> mLeftCalibrationGrayScale;
+    public static HashMap<Integer,double[]> mRightCalibrationGrayScale;
 
     private static int mOrder = 0;
     private static final int REQUEST_CAMERA = 1;
@@ -125,7 +129,9 @@ public class CalibrationActivity extends AppCompatActivity {
         mPeopleDet = new PeopleDet();
         buttonList = new ArrayList<Button>();
         mCalibrationPos = new HashMap<>();
-        mCalibrationGrayScale = new HashMap<>();
+        mLeftCalibrationGrayScale = new HashMap<>();
+        mRightCalibrationGrayScale = new HashMap<>();
+        btnGazeTracking = (Button) findViewById(R.id.btnGazeTracking);
         btnCali1 = (Button) findViewById(R.id.btnCali1);
         btnCali2 = (Button) findViewById(R.id.btnCali2);
         btnCali3 = (Button) findViewById(R.id.btnCali3);
@@ -146,127 +152,80 @@ public class CalibrationActivity extends AppCompatActivity {
         buttonList.add(btnCali9);
         checkPhoto = (ImageView) findViewById(R.id.photoView);
 
-
-        cameraCapture();
         btnCali5.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mOrder = 5;
-                createNewFile(mOrder);
-                setBtnVisible(btnCali1);
-                cameraCapture();
-                int[] pos = new int[2];
-                btnCali5.getLocationOnScreen(pos);
-                Point point = new Point(pos[0],pos[1]);
-                mCalibrationPos.put(Integer.valueOf(mOrder),point);
+                clickEvent(mOrder,btnCali5,btnCali1);
             }
         });
         btnCali1.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mOrder = 1;
-                createNewFile(mOrder);
-                setBtnVisible(btnCali2);
-                cameraCapture();
-                int[] pos = new int[2];
-                btnCali1.getLocationOnScreen(pos);
-                Point point = new Point(pos[0],pos[1]);
-                mCalibrationPos.put(mOrder,point);
+                clickEvent(mOrder,btnCali1,btnCali2);
             }
         });
         btnCali2.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mOrder = 2;
-                createNewFile(mOrder);
-                setBtnVisible(btnCali3);
-                cameraCapture();
-                int[] pos = new int[2];
-                btnCali2.getLocationOnScreen(pos);
-                Point point = new Point(pos[0],pos[1]);
-                mCalibrationPos.put(mOrder,point);
+                clickEvent(mOrder,btnCali2,btnCali3);
             }
         });
         btnCali3.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mOrder = 3;
-                createNewFile(mOrder);
-                setBtnVisible(btnCali6);
-                cameraCapture();
-                int[] pos = new int[2];
-                btnCali3.getLocationOnScreen(pos);
-                Point point = new Point(pos[0],pos[1]);
-                mCalibrationPos.put(mOrder,point);
+                clickEvent(mOrder,btnCali3,btnCali6);
             }
         });
         btnCali6.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mOrder = 6;
-                createNewFile(mOrder);
-                setBtnVisible(btnCali9);
-                cameraCapture();
-                int[] pos = new int[2];
-                btnCali6.getLocationOnScreen(pos);
-                Point point = new Point(pos[0],pos[1]);
-                mCalibrationPos.put(mOrder,point);
+                clickEvent(mOrder,btnCali6,btnCali9);
             }
         });
         btnCali9.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mOrder = 9;
-                createNewFile(mOrder);
-                setBtnVisible(btnCali8);
-                cameraCapture();
-                int[] pos = new int[2];
-                btnCali9.getLocationOnScreen(pos);
-                Point point = new Point(pos[0],pos[1]);
-                mCalibrationPos.put(mOrder,point);
+                clickEvent(mOrder,btnCali9,btnCali8);
             }
         });
         btnCali8.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mOrder = 8;
-                createNewFile(mOrder);
-                setBtnVisible(btnCali7);
-                cameraCapture();
-                int[] pos = new int[2];
-                btnCali8.getLocationOnScreen(pos);
-                Point point = new Point(pos[0],pos[1]);
-                mCalibrationPos.put(mOrder,point);
+                clickEvent(mOrder,btnCali8,btnCali7);
             }
         });
         btnCali7.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mOrder = 7;
-                createNewFile(mOrder);
-                setBtnVisible(btnCali4);
-                cameraCapture();
-                int[] pos = new int[2];
-                btnCali7.getLocationOnScreen(pos);
-                Point point = new Point(pos[0],pos[1]);
-                mCalibrationPos.put(mOrder,point);
+                clickEvent(mOrder,btnCali7,btnCali4);
             }
         });
         btnCali4.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mOrder = 4;
-                createNewFile(mOrder);
-                cameraCapture();
-                int[] pos = new int[2];
-                btnCali4.getLocationOnScreen(pos);
-                Point point = new Point(pos[0],pos[1]);
-                mCalibrationPos.put(mOrder,point);
-                stopBackGroundThread();
-                closeCamera();
+                clickEvent(mOrder,btnCali4,null);
                 btnCali4.setBackgroundColor(Color.BLACK);
                 btnCali4.setEnabled(false);
-                Intent intent = new Intent(CalibrationActivity.this,MainActivity.class);
+                btnGazeTracking.setEnabled(true);
+                btnGazeTracking.setBackgroundColor(Color.WHITE);
+            }
+        });
+
+        btnGazeTracking.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                stopBackGroundThread();
+                closeCamera();
+                Intent intent = new Intent(CalibrationActivity.this,CameraActivity.class);
                 startActivity(intent);
             }
         });
@@ -277,7 +236,22 @@ public class CalibrationActivity extends AppCompatActivity {
         }
         startBackGroundThread();
         openCamera();
+        showProgressDialog();
+        createNewFile(0);
+        cameraCapture();
+        hideProgressDialog();
 
+    }
+    private void clickEvent(int order, Button currentBtn,Button nextBtn){
+        showProgressDialog();
+        createNewFile(order);
+        setBtnVisible(nextBtn);
+        cameraCapture();
+        int[] pos = new int[2];
+        currentBtn.getLocationOnScreen(pos);
+        Point point = new Point(pos[0],pos[1]);
+        mCalibrationPos.put(order,point);
+        hideProgressDialog();
     }
 
     private void createNewFile(int order){
@@ -438,6 +412,7 @@ public class CalibrationActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
+
     }
 
     private void showPhoto(){
@@ -477,14 +452,15 @@ public class CalibrationActivity extends AppCompatActivity {
             else if(EYE_RATIO > leftratio){lefth = (int)(leftw*EYE_RATIO);}
             Bitmap LeftBitMap = Bitmap.createBitmap(bitmap, leftx,lefty,leftw, lefth);
             mLeftBitmap = doGreyscale(Bitmap.createScaledBitmap(LeftBitMap,EYE_WIDTH,EYE_HEIGHT,false));
+            //mLeftBitmap = Bitmap.createScaledBitmap(LeftBitMap,EYE_WIDTH,EYE_HEIGHT,false);
 
-            double[] grayScale = new double[mLeftBitmap.getWidth()*mLeftBitmap.getHeight()];
+            double[] leftGrayScale = new double[mLeftBitmap.getWidth()*mLeftBitmap.getHeight()];
             for(int i=0; i<mLeftBitmap.getHeight();i++){
                 for (int j=0; j<mLeftBitmap.getWidth();j++){
-                    grayScale[i*mLeftBitmap.getWidth()+j] = Color.red(mLeftBitmap.getPixel(j,i));
+                    leftGrayScale[i*mLeftBitmap.getWidth()+j] = Color.red(mLeftBitmap.getPixel(j,i));
                 }
             }
-            mCalibrationGrayScale.put(mOrder,grayScale);
+            mLeftCalibrationGrayScale.put(mOrder,leftGrayScale);
 
             /*Log.d(TAG,"mOrder: "+mOrder);
             Log.d(TAG,"grayScale Length :"+grayScale.length);*/
@@ -511,9 +487,17 @@ public class CalibrationActivity extends AppCompatActivity {
             else if(EYE_RATIO > rightratio){righth = (int)(rightw*EYE_RATIO);}
             Bitmap RightBitMap = Bitmap.createBitmap(bitmap, rightx,righty,rightw, righth);
             mRightBitmap = doGreyscale(Bitmap.createScaledBitmap(RightBitMap,EYE_WIDTH,EYE_HEIGHT,false));
+
+            double[] rightGrayScale = new double[mRightBitmap.getWidth()*mRightBitmap.getHeight()];
+            for(int i=0; i<mRightBitmap.getHeight();i++){
+                for (int j=0; j<mRightBitmap.getWidth();j++){
+                    rightGrayScale[i*mRightBitmap.getWidth()+j] = Color.red(mRightBitmap.getPixel(j,i));
+                }
+            }
+            mRightCalibrationGrayScale.put(mOrder,rightGrayScale);
         }
 
-        checkPhoto.setImageBitmap(mLeftBitmap);
+        checkPhoto.setImageBitmap(mRightBitmap);
         if(mFile.exists()) Log.d(TAG,"mFile exists.",null);
         else Log.d(TAG,"mFile not exists.",null);
         Toast.makeText(this,"File Path"+mFile.getAbsolutePath(),Toast.LENGTH_SHORT).show();
@@ -592,6 +576,21 @@ public class CalibrationActivity extends AppCompatActivity {
 
         // return final image
         return bmOut;
+    }
+
+
+    public void showProgressDialog(){
+        if(mProgressDialog == null){
+            mProgressDialog = new ProgressDialog(this);
+            mProgressDialog.setCancelable(false);
+            mProgressDialog.setMessage("Loading...");
+        }
+        mProgressDialog.show();
+    }
+    public void hideProgressDialog(){
+        if(mProgressDialog!=null && mProgressDialog.isShowing()){
+            mProgressDialog.dismiss();
+        }
     }
 
 }
