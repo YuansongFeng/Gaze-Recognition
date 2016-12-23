@@ -249,7 +249,7 @@ public class CalibrationActivity extends AppCompatActivity {
         cameraCapture();
         int[] pos = new int[2];
         currentBtn.getLocationOnScreen(pos);
-        Point point = new Point(pos[0],pos[1]);
+        Point point = new Point(pos[0]+currentBtn.getWidth()/2,pos[1]+currentBtn.getHeight()/2);
         mCalibrationPos.put(order,point);
         hideProgressDialog();
     }
@@ -450,7 +450,7 @@ public class CalibrationActivity extends AppCompatActivity {
             leftratio = (double) lefth/leftw;
             if(EYE_RATIO < leftratio){leftw = (int)(lefth/EYE_RATIO);}
             else if(EYE_RATIO > leftratio){lefth = (int)(leftw*EYE_RATIO);}
-            Bitmap LeftBitMap = Bitmap.createBitmap(bitmap, leftx,lefty,leftw, lefth);
+            Bitmap LeftBitMap = Bitmap.createBitmap(bitmap, leftx,lefty-5,leftw, lefth);
             mLeftBitmap = doGreyscale(Bitmap.createScaledBitmap(LeftBitMap,EYE_WIDTH,EYE_HEIGHT,false));
             //mLeftBitmap = Bitmap.createScaledBitmap(LeftBitMap,EYE_WIDTH,EYE_HEIGHT,false);
 
@@ -460,8 +460,9 @@ public class CalibrationActivity extends AppCompatActivity {
                     leftGrayScale[i*mLeftBitmap.getWidth()+j] = Color.red(mLeftBitmap.getPixel(j,i));
                 }
             }
-            mLeftCalibrationGrayScale.put(mOrder,leftGrayScale);
-
+            if(mOrder != 0) {
+                mLeftCalibrationGrayScale.put(mOrder, leftGrayScale);
+            }
             /*Log.d(TAG,"mOrder: "+mOrder);
             Log.d(TAG,"grayScale Length :"+grayScale.length);*/
 
@@ -485,7 +486,7 @@ public class CalibrationActivity extends AppCompatActivity {
             rightratio = (double) righth/rightw;
             if(EYE_RATIO < rightratio){rightw = (int)(righth/EYE_RATIO);}
             else if(EYE_RATIO > rightratio){righth = (int)(rightw*EYE_RATIO);}
-            Bitmap RightBitMap = Bitmap.createBitmap(bitmap, rightx,righty,rightw, righth);
+            Bitmap RightBitMap = Bitmap.createBitmap(bitmap, rightx,righty-5,rightw, righth);
             mRightBitmap = doGreyscale(Bitmap.createScaledBitmap(RightBitMap,EYE_WIDTH,EYE_HEIGHT,false));
 
             double[] rightGrayScale = new double[mRightBitmap.getWidth()*mRightBitmap.getHeight()];
@@ -494,7 +495,9 @@ public class CalibrationActivity extends AppCompatActivity {
                     rightGrayScale[i*mRightBitmap.getWidth()+j] = Color.red(mRightBitmap.getPixel(j,i));
                 }
             }
+            if(mOrder != 0){
             mRightCalibrationGrayScale.put(mOrder,rightGrayScale);
+            }
         }
 
         checkPhoto.setImageBitmap(mRightBitmap);

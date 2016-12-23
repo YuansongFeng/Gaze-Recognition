@@ -55,6 +55,7 @@ import junit.framework.Assert;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import Jama.*;
 
@@ -345,7 +346,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                 leftratio = (double) lefth/leftw;
                                 if(EYE_RATIO < leftratio){leftw = (int)(lefth/EYE_RATIO);}
                                 else if(EYE_RATIO > leftratio){lefth = (int)(leftw*EYE_RATIO);}
-                                Bitmap LeftBitMap = Bitmap.createBitmap(mRGBframeBitmap, leftx,lefty,leftw, lefth);
+                                Bitmap LeftBitMap = Bitmap.createBitmap(mRGBframeBitmap, leftx,lefty-5,leftw, lefth);
                                 mLeftBitmap = CalibrationActivity.doGreyscale(Bitmap.createScaledBitmap(LeftBitMap,EYE_WIDTH,EYE_HEIGHT,false));
 
                                 double[] observedLeftScale = new double[mLeftBitmap.getWidth()*mLeftBitmap.getHeight()];
@@ -354,7 +355,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                         observedLeftScale[i*mLeftBitmap.getWidth()+j] = Color.red(mLeftBitmap.getPixel(j,i));
                                     }
                                 }
-                                double[] leftCoefs = computeCoef(observedLeftScale,true);
+                                double[] leftCoefs = computeCoefQR(observedLeftScale,true);
                                 /*for(int i=0; i<coefficients.length; i++){
                                     Log.d(TAG,"Coefficients: "+coefficients[i]);
                                 }*/
@@ -365,11 +366,9 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                 double YR = (double)mScreentHeight/5000;
                                 adjustedX = (int)((gazing.x-200)*XR);
                                 adjustedY = (int)((gazing.y+100)*YR);*/
-                                adjustedXLeft = leftGaze.x-200;
+                                adjustedXLeft = leftGaze.x;
                                 adjustedYLeft = leftGaze.y;
-                                //Log.d(TAG,"Staring Position: "+adjustedXLeft+", "+adjustedYLeft);
-
-
+                                //Log.d(TAG,"Right Eye Staring Position: "+adjustedXLeft+", "+adjustedYLeft);
 
                                 int rightx = mPreviewWdith;
                                 int righty = mPreviewHeight;
@@ -389,7 +388,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                 rightratio = (double) righth/rightw;
                                 if(EYE_RATIO < rightratio){rightw = (int)(righth/EYE_RATIO);}
                                 else if(EYE_RATIO > rightratio){righth = (int)(rightw*EYE_RATIO);}
-                                Bitmap RightBitMap = Bitmap.createBitmap(mRGBframeBitmap, rightx,righty,rightw, righth);
+                                Bitmap RightBitMap = Bitmap.createBitmap(mRGBframeBitmap, rightx,righty-5,rightw, righth);
                                 mRightBitmap = CalibrationActivity.doGreyscale(Bitmap.createScaledBitmap(RightBitMap,EYE_WIDTH,EYE_HEIGHT,false));
 
                                 double[] observedRightScale = new double[mRightBitmap.getWidth()*mRightBitmap.getHeight()];
@@ -398,7 +397,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                         observedRightScale[i*mRightBitmap.getWidth()+j] = Color.red(mRightBitmap.getPixel(j,i));
                                     }
                                 }
-                                double[] rightCoefs = computeCoef(observedLeftScale,false);
+                                double[] rightCoefs = computeCoefQR(observedRightScale,false);
                                 /*for(int i=0; i<coefficients.length; i++){
                                     Log.d(TAG,"Coefficients: "+coefficients[i]);
                                 }*/
@@ -409,9 +408,9 @@ public class OnGetImageListener implements OnImageAvailableListener {
                                 double YR = (double)mScreentHeight/5000;
                                 adjustedX = (int)((gazing.x-200)*XR);
                                 adjustedY = (int)((gazing.y+100)*YR);*/
-                                adjustedXRight = rightGaze.x+2000;
-                                adjustedYRight = rightGaze.y-800;
-                                //Log.d(TAG,"Staring Position: "+adjustedXRight+", "+adjustedYRight);
+                                adjustedXRight = rightGaze.x;
+                                adjustedYRight = rightGaze.y;
+                                //Log.d(TAG,"Left Eye Staring Position: "+adjustedXRight+", "+adjustedYRight);
 
                                 int adjustedX = (adjustedXLeft+adjustedXRight)/2;
                                 int adjustedY = (adjustedYLeft+adjustedYRight)/2;
@@ -421,7 +420,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
                         }
                         //mWindow.setRGBBitmap(mRGBframeBitmap);
                         mWindow.setRGBBitmap(mGazeBitmap);
-                        //mLeftEyeWindow.setRGBBitmap(mLeftBitmap);
+                        mLeftEyeWindow.setRGBBitmap(mLeftBitmap);
                         mRightEyeWindow.setRGBBitmap(mRightBitmap);
                         mIsComputing = false;
                     }
@@ -430,7 +429,7 @@ public class OnGetImageListener implements OnImageAvailableListener {
         Trace.endSection();
     }
 
-    private static double[] computeCoef(double[] observed, boolean leftEye){
+    private static double[] computeCoefQR(double[] observed, boolean leftEye){
         double[] coef = new double[9];
         double[][] caliScale = new double[9][];
         if(leftEye == true){
@@ -456,10 +455,85 @@ public class OnGetImageListener implements OnImageAvailableListener {
             total += coef[i];
         }
         //Normalize Coefficients
-        for(int i=0; i<coef.length; i++){
-            coef[i] /= total;
+        double t = 0;
+        for(double i:coef){
+            t += i*i;
+        }
+        for(int i=0;i<coef.length;i++){
+            coef[i] = coef[i]/Math.pow(t,1/2d);
         }
         return coef;
+    }
+
+    public double[] computeCoefOMP(double[] observed, boolean leftEye) {
+        double[][] A;
+        double[][] B;
+        double[][] residual;
+        HashSet<Integer> chosenIndex;
+
+        double[] x = new double[9];
+        A = new double[9][];
+        if(leftEye == true){
+            for(int i:mLeftCalibrationGrayScale.keySet()){
+                A[i-1] = mLeftCalibrationGrayScale.get(i);
+            }
+        }else{
+            for(int i:mRightCalibrationGrayScale.keySet()){
+                A[i-1] = mRightCalibrationGrayScale.get(i);
+            }
+        }
+        B = new double[1][observed.length];
+        residual = new double[1][observed.length];
+        chosenIndex = new HashSet<>();
+        System.arraycopy(observed, 0, B[0], 0, observed.length);
+        System.arraycopy(observed, 0, residual[0], 0, observed.length);
+        Jama.Matrix mA = new Jama.Matrix(A);
+        mA = mA.transpose();
+        Jama.Matrix mB = new Jama.Matrix(B);
+        mB = mB.transpose();
+        Jama.Matrix mResidual = new Jama.Matrix(residual);
+        mResidual = mResidual.transpose();
+        int count = 0;
+        while (count < 6) {
+            double maxInnerProductNorm = 0;
+            double maxInnerProduct = 0;
+            int maxIndex = 0;
+            double scalarCoef = 0;
+            for (int i = 0; i < mA.getColumnDimension(); i++) {
+                if (!chosenIndex.contains(i)) {
+                    Jama.Matrix Ai = mA.getMatrix(0, mA.getRowDimension() - 1, i, i);
+                    Jama.Matrix normAi = Ai.times(1 / Ai.norm2());
+                    Jama.Matrix normResidual = mResidual.times(1 / mResidual.norm2());
+                    double innerProductNorm = Math.abs(normAi.transpose().times(normResidual).get(0, 0));
+					/*System.out.println("Current inner product norm with "+i+" is " + innerProductNorm);*/
+                    if (innerProductNorm > maxInnerProductNorm) {
+                        maxInnerProductNorm = innerProductNorm;
+                        maxInnerProduct = Ai.transpose().times(mResidual).get(0, 0);
+                        maxIndex = i;
+                    }
+                }
+            }
+            Jama.Matrix Amax = mA.getMatrix(0, mA.getRowDimension() - 1, maxIndex, maxIndex);
+            scalarCoef = maxInnerProduct / (Math.pow(Amax.norm2(), 2));
+            if (x[maxIndex] == 0)
+                x[maxIndex] = scalarCoef;
+            chosenIndex.add(maxIndex);
+            mResidual = mResidual.minus(Amax.times(scalarCoef));
+            count += 1;
+			/*System.out.println("Max inner product Norm is " + maxInnerProductNorm);
+			System.out.println("Max inner product is "+maxInnerProduct);
+			System.out.println("Scalar Coef is "+scalarCoef);
+			System.out.println("Max index is " + maxIndex);
+            System.out.println("Residual is " + mResidual.norm2());*/
+        }
+        double t = 0;
+        for(double i:x){
+            t += i*i;
+        }
+        for(int i=0;i<x.length;i++){
+            x[i] = x[i]/Math.pow(t,1/2d);
+        }
+        return x;
     }
 
     private static Point computeLocation(double[] coef){
