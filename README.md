@@ -1,10 +1,11 @@
 ## gaze recognition
 + Stage 1:Facial Landmark Detection
-
++ Stage 2:Gaze tracking within an error range of 2 centimeters (so only applicable on Tablet so far)
 
 ### Features
 
 * Support HOG detector on Facial Landmark Detection
+* Use linear suporposition of images to track eyesight
 
 ### Demo
 
